@@ -40,20 +40,11 @@ class Player(pygame.sprite.Sprite):
             self.rect.move_ip(self.speed, 0)
         if keys[pygame.K_LEFT]:
             self.rect.move_ip(-self.speed, 0)
-        if keys[pygame.K_UP]:
-            self.rect.move_ip(0, -self.speed)
-        if keys[pygame.K_DOWN]:
-            self.rect.move_ip(0, self.speed)
 
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > WIDTH:
             self.rect.right = WIDTH
-        if self.rect.bottom > HEIGHT:
-            self.rect.bottom = HEIGHT
-        if self.rect.top < 0:
-            self.rect.top = 0
-        
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -61,89 +52,93 @@ class Enemy(pygame.sprite.Sprite):
         super().__init__()
         self.image = image_enemy
         self.rect = self.image.get_rect()
-        self.speed = 10
-        self.generate_random_rect()
+        self.speed = 8
+        self.generate()
 
-    def generate_random_rect(self):
+    def generate(self):
         self.rect.left = random.randint(0, WIDTH - self.rect.w)
         self.rect.bottom = 0
 
     def move(self):
         self.rect.move_ip(0, self.speed)
         if self.rect.top > HEIGHT:
-            self.generate_random_rect()
+            self.generate()
 
 
 class Coin(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface((20, 20))
-        self.image.fill((255, 215, 0))
-        self.rect = self.image.get_rect()
-        self.speed = 6
-        self.generate_random_rect()
+        self.value = random.choice([1, 2, 3])
 
-    def generate_random_rect(self):
+        self.image = pygame.Surface((20, 20))
+        if self.value == 1:
+            self.image.fill((255, 215, 0))
+        elif self.value == 2:
+            self.image.fill((0, 255, 0))
+        else:
+            self.image.fill((0, 0, 255))
+
+        self.rect = self.image.get_rect()
+        self.speed = 4 + self.value
+        self.generate()
+
+    def generate(self):
         self.rect.left = random.randint(0, WIDTH - self.rect.w)
         self.rect.bottom = 0
 
     def move(self):
         self.rect.move_ip(0, self.speed)
         if self.rect.top > HEIGHT:
-            self.generate_random_rect()
+            self.generate()
 
-
-running = True
-clock = pygame.time.Clock()
-FPS = 60
 
 player = Player()
 enemy = Enemy()
 coin = Coin()
 
+all_sprites = pygame.sprite.Group(player, enemy, coin)
+enemy_sprites = pygame.sprite.Group(enemy)
+
 coins = 0
+clock = pygame.time.Clock()
 
-all_sprites = pygame.sprite.Group()
-enemy_sprites = pygame.sprite.Group()
-
-all_sprites.add(player, enemy, coin)
-enemy_sprites.add(enemy)
-
-while running:
+while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            exit()
 
     player.move()
 
     screen.blit(image_background, (0, 0))
 
-    for entity in all_sprites:
-        entity.move()
-        screen.blit(entity.image, entity.rect)
+    for e in all_sprites:
+        e.move()
+        screen.blit(e.image, e.rect)
 
-    # сбор монет
+    # 💰 СБОР КОИНА (ИСПРАВЛЕНО)
     if pygame.sprite.collide_rect(player, coin):
-        coins += 1
-        coin.generate_random_rect()
+        coins += coin.value
+        coin.kill()  # ❗ удаляем старый коин
+        coin = Coin()
+        all_sprites.add(coin)
 
-    # столкновение с врагом
+        if coins % 5 == 0:
+            enemy.speed += 1
+
+    # 💥 СТОЛКНОВЕНИЕ
     if pygame.sprite.spritecollideany(player, enemy_sprites):
         sound_crash.play()
         time.sleep(1)
-
         screen.fill("red")
         screen.blit(image_game_over, image_game_over_rect)
         pygame.display.flip()
-
         time.sleep(3)
-        running = False
+        pygame.quit()
+        exit()
 
-    # счётчик
-    text = font_small.render(f"Coins: {coins}", True, (0, 0, 0))
+    text = font_small.render(f"Coins: {coins}", True, (0,0,0))
     screen.blit(text, (250, 10))
 
     pygame.display.flip()
-    clock.tick(FPS)
-
-pygame.quit()
+    clock.tick(60)
